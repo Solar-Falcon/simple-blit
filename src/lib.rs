@@ -10,7 +10,7 @@ use core::{
 /// Blit from one buffer to another
 ///
 /// Crops the rectangle if it doesn't fit
-pub fn blit<'a, T: Copy>(
+pub fn blit<'a, T: Clone>(
     mut dest: BufferMut<'a, T>,
     dest_pos: (i32, i32),
     src: Buffer<'a, T>,
@@ -63,7 +63,7 @@ pub fn blit<'a, T: Copy>(
         let src_line_offset = sx as usize;
 
         dest[dest_offset..(dest_offset + copy_width)]
-            .copy_from_slice(&line[src_line_offset..(src_line_offset + copy_width)]);
+            .clone_from_slice(&line[src_line_offset..(src_line_offset + copy_width)]);
     }
 }
 
