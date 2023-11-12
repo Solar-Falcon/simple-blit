@@ -1,0 +1,12 @@
+[package]
+name = "simple-blit"
+version = "0.1.0"
+description = "Simple blitting from one buffer to another."
+authors = ["Solar-Falcon"]
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/Solar-Falcon/simple-blit"
+categories = ["no-std", "no-std::no-alloc"]
+readme = "README.md"
+
+[dependencies]
