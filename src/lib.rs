@@ -67,6 +67,15 @@ pub fn blit<'a, T: Clone>(
     }
 }
 
+/// Blit one whole buffer to another
+/// 
+/// Will crop if it doesn't fit
+#[inline]
+pub fn blit_full<'a, T: Clone>(dest: BufferMut<'a, T>, dest_pos: (i32, i32), src: Buffer<'a, T>) {
+    let size = (src.width, src.height);
+    blit(dest, dest_pos, src, (0, 0), size);
+}
+
 /// Immutable buffer with width and height
 pub struct Buffer<'a, T> {
     slice: &'a [T],
