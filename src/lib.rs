@@ -7,15 +7,61 @@ use core::{
     ops::{Deref, DerefMut},
 };
 
-/// Blit from one buffer to another
+/// Blit from one buffer to another.
 ///
-/// Crops the rectangle if it doesn't fit
+/// Crops the rectangle if it doesn't fit.
+#[inline]
 pub fn blit<'a, T: Clone>(
+    dest: BufferMut<'a, T>,
+    dest_pos: (i32, i32),
+    src: Buffer<'a, T>,
+    src_pos: (i32, i32),
+    size: (u32, u32),
+) {
+    blit_with(dest, dest_pos, src, src_pos, size, |dest, src, _| dest.clone_from(src));
+}
+
+/// Blit one whole buffer to another.
+///
+/// Crops the rectangle if it doesn't fit.
+#[inline]
+pub fn blit_full<'a, T: Clone>(dest: BufferMut<'a, T>, dest_pos: (i32, i32), src: Buffer<'a, T>) {
+    let size = (src.width, src.height);
+    blit(dest, dest_pos, src, (0, 0), size);
+}
+
+/// Blit one whole buffer to another.
+///
+/// Crops the rectangle if it doesn't fit.
+/// Values equal to `mask` will be skipped.
+#[inline]
+pub fn blit_masked<'a, T: Clone + PartialEq>(
+    dest: BufferMut<'a, T>,
+    dest_pos: (i32, i32),
+    src: Buffer<'a, T>,
+    src_pos: (i32, i32),
+    size: (u32, u32),
+    mask: &T,
+) {
+    blit_with(dest, dest_pos, src, src_pos, size, |dest, src, _| {
+        if src != mask {
+            dest.clone_from(src);
+        }
+    })
+}
+
+/// Blit one whole buffer to another (generalized function).
+///
+/// Crops the rectangle if it doesn't fit.
+/// `f` is called for each pair of values, the last argument
+/// is their position relative to the (already cropped if necessary) rectangle that is being blitted.
+pub fn blit_with<'a, T>(
     mut dest: BufferMut<'a, T>,
     dest_pos: (i32, i32),
     src: Buffer<'a, T>,
     src_pos: (i32, i32),
     size: (u32, u32),
+    mut f: impl FnMut(&mut T, &T, (i32, i32)),
 ) {
     let (dx, dw) = if dest_pos.0 < 0 {
         (0, size.0.saturating_sub(dest_pos.0.unsigned_abs()))
@@ -53,27 +99,14 @@ pub fn blit<'a, T: Clone>(
         min(dh, sh),
     ) as usize;
 
-    for (iy, line) in src
-        .chunks_exact(src.width as _)
-        .enumerate()
-        .skip(sy as _)
-        .take(copy_height)
-    {
+    for iy in 0..copy_height {
         let dest_offset = (iy + dy as usize) * dest.width as usize + dx as usize;
-        let src_line_offset = sx as usize;
+        let src_offset = (iy + sy as usize) * src.width as usize + sx as usize;
 
-        dest[dest_offset..(dest_offset + copy_width)]
-            .clone_from_slice(&line[src_line_offset..(src_line_offset + copy_width)]);
+        for ix in 0..copy_width {
+            f(&mut dest[dest_offset + ix], &src[src_offset + ix], (ix as _, iy as _))
+        }
     }
-}
-
-/// Blit one whole buffer to another
-/// 
-/// Will crop if it doesn't fit
-#[inline]
-pub fn blit_full<'a, T: Clone>(dest: BufferMut<'a, T>, dest_pos: (i32, i32), src: Buffer<'a, T>) {
-    let size = (src.width, src.height);
-    blit(dest, dest_pos, src, (0, 0), size);
 }
 
 /// Immutable buffer with width and height
@@ -269,7 +302,7 @@ mod tests {
             1, 1, 1, 1, 0,
             1, 1, 1, 1, 0,
             1, 1, 1, 1, 0,
-            1, 1, 1, 1, 0,
+            0, 0, 0, 0, 0,
         ];
 
         assert_eq!(dest, correct);

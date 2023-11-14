@@ -5,6 +5,8 @@ Provides very simple blitting.
 ## Example
 
 ```rust
+use simple_blit::*;
+
 let mut dest: [u8; 25] = [
     0, 0, 0, 0, 0,
     0, 0, 0, 0, 0,
