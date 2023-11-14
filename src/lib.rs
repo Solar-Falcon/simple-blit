@@ -11,22 +11,28 @@ use core::{
 ///
 /// Crops the rectangle if it doesn't fit.
 #[inline]
-pub fn blit<'a, T: Clone>(
-    dest: BufferMut<'a, T>,
+pub fn blit<'a, T: Clone + 'a>(
+    dest: impl AsMut<BufferMut<'a, T>>,
     dest_pos: (i32, i32),
-    src: Buffer<'a, T>,
+    src: impl AsRef<Buffer<'a, T>>,
     src_pos: (i32, i32),
     size: (u32, u32),
 ) {
-    blit_with(dest, dest_pos, src, src_pos, size, |dest, src, _| dest.clone_from(src));
+    blit_with(dest, dest_pos, src, src_pos, size, |dest, src, _| {
+        dest.clone_from(src)
+    });
 }
 
 /// Blit one whole buffer to another.
 ///
 /// Crops the rectangle if it doesn't fit.
 #[inline]
-pub fn blit_full<'a, T: Clone>(dest: BufferMut<'a, T>, dest_pos: (i32, i32), src: Buffer<'a, T>) {
-    let size = (src.width, src.height);
+pub fn blit_full<'a, T: Clone + 'a>(
+    dest: impl AsMut<BufferMut<'a, T>>,
+    dest_pos: (i32, i32),
+    src: impl AsRef<Buffer<'a, T>>,
+) {
+    let size = (src.as_ref().width, src.as_ref().height);
     blit(dest, dest_pos, src, (0, 0), size);
 }
 
@@ -35,10 +41,10 @@ pub fn blit_full<'a, T: Clone>(dest: BufferMut<'a, T>, dest_pos: (i32, i32), src
 /// Crops the rectangle if it doesn't fit.
 /// Values equal to `mask` will be skipped.
 #[inline]
-pub fn blit_masked<'a, T: Clone + PartialEq>(
+pub fn blit_masked<'a, T: Clone + PartialEq + 'a>(
     dest: BufferMut<'a, T>,
     dest_pos: (i32, i32),
-    src: Buffer<'a, T>,
+    src: impl AsRef<Buffer<'a, T>>,
     src_pos: (i32, i32),
     size: (u32, u32),
     mask: &T,
@@ -55,14 +61,17 @@ pub fn blit_masked<'a, T: Clone + PartialEq>(
 /// Crops the rectangle if it doesn't fit.
 /// `f` is called for each pair of values, the last argument
 /// is their position relative to the (already cropped if necessary) rectangle that is being blitted.
-pub fn blit_with<'a, T>(
-    mut dest: BufferMut<'a, T>,
+pub fn blit_with<'a, T: 'a>(
+    mut dest: impl AsMut<BufferMut<'a, T>>,
     dest_pos: (i32, i32),
-    src: Buffer<'a, T>,
+    src: impl AsRef<Buffer<'a, T>>,
     src_pos: (i32, i32),
     size: (u32, u32),
     mut f: impl FnMut(&mut T, &T, (i32, i32)),
 ) {
+    let dest = dest.as_mut();
+    let src = src.as_ref();
+
     let (dx, dw) = if dest_pos.0 < 0 {
         (0, size.0.saturating_sub(dest_pos.0.unsigned_abs()))
     } else {
@@ -104,7 +113,11 @@ pub fn blit_with<'a, T>(
         let src_offset = (iy + sy as usize) * src.width as usize + sx as usize;
 
         for ix in 0..copy_width {
-            f(&mut dest[dest_offset + ix], &src[src_offset + ix], (ix as _, iy as _))
+            f(
+                &mut dest[dest_offset + ix],
+                &src[src_offset + ix],
+                (ix as _, iy as _),
+            )
         }
     }
 }
@@ -164,6 +177,20 @@ impl<'a, T> Deref for Buffer<'a, T> {
     #[inline]
     fn deref(&self) -> &Self::Target {
         self.slice
+    }
+}
+
+impl<'a, T> AsRef<Self> for Buffer<'a, T> {
+    #[inline]
+    fn as_ref(&self) -> &Self {
+        self
+    }
+}
+
+impl<'a, T> AsMut<Self> for Buffer<'a, T> {
+    #[inline]
+    fn as_mut(&mut self) -> &mut Self {
+        self
     }
 }
 
@@ -229,6 +256,20 @@ impl<'a, T> DerefMut for BufferMut<'a, T> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.slice
+    }
+}
+
+impl<'a, T> AsRef<Self> for BufferMut<'a, T> {
+    #[inline]
+    fn as_ref(&self) -> &Self {
+        self
+    }
+}
+
+impl<'a, T> AsMut<Self> for BufferMut<'a, T> {
+    #[inline]
+    fn as_mut(&mut self) -> &mut Self {
+        self
     }
 }
 
