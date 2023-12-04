@@ -61,13 +61,13 @@ pub fn blit_masked<'a, T: Clone + PartialEq + 'a>(
 /// Crops the rectangle if it doesn't fit.
 /// `f` is called for each pair of values, the last argument
 /// is their position relative to the (already cropped if necessary) rectangle that is being blitted.
-pub fn blit_with<'a, T: 'a>(
+pub fn blit_with<'a, T: 'a, U: 'a>(
     mut dest: impl AsMut<BufferMut<'a, T>>,
     dest_pos: (i32, i32),
-    src: impl AsRef<Buffer<'a, T>>,
+    src: impl AsRef<Buffer<'a, U>>,
     src_pos: (i32, i32),
     size: (u32, u32),
-    mut f: impl FnMut(&mut T, &T, (i32, i32)),
+    mut f: impl FnMut(&mut T, &U, (i32, i32)),
 ) {
     let dest = dest.as_mut();
     let src = src.as_ref();
