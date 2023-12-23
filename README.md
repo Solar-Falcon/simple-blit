@@ -24,10 +24,10 @@ let src: [u8; 16] = [
 
 blit(
     // construct a buffer which holds width and height
-    BufferMut::new(&mut dest, 5, 5).unwrap(),
+    &mut GenericBuffer::new(&mut dest, 5, 5).unwrap(),
     // where to blit
     (1, 1),
-    Buffer::new(&src, 4, 4).unwrap(),
+    &GenericBuffer::new(&src, 4, 4).unwrap(),
     // where to blit from
     (0, 0),
     // size of the area

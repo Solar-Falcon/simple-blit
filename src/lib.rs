@@ -4,17 +4,18 @@
 
 use core::{
     cmp::min,
-    ops::{Deref, DerefMut},
+    marker::PhantomData,
+    ops::{Deref, DerefMut, Index, IndexMut},
 };
 
 /// Blit from one buffer to another.
 ///
 /// Crops the rectangle if it doesn't fit.
 #[inline]
-pub fn blit<'a, T: Clone + 'a>(
-    dest: impl AsMut<BufferMut<'a, T>>,
+pub fn blit<T: Clone>(
+    dest: &mut impl BufferMut<T>,
     dest_pos: (i32, i32),
-    src: impl AsRef<Buffer<'a, T>>,
+    src: &impl Buffer<T>,
     src_pos: (i32, i32),
     size: (u32, u32),
 ) {
@@ -27,12 +28,12 @@ pub fn blit<'a, T: Clone + 'a>(
 ///
 /// Crops the rectangle if it doesn't fit.
 #[inline]
-pub fn blit_full<'a, T: Clone + 'a>(
-    dest: impl AsMut<BufferMut<'a, T>>,
+pub fn blit_full<T: Clone>(
+    dest: &mut impl BufferMut<T>,
     dest_pos: (i32, i32),
-    src: impl AsRef<Buffer<'a, T>>,
+    src: &impl Buffer<T>,
 ) {
-    let size = (src.as_ref().width, src.as_ref().height);
+    let size = (src.width(), src.height());
     blit(dest, dest_pos, src, (0, 0), size);
 }
 
@@ -41,10 +42,10 @@ pub fn blit_full<'a, T: Clone + 'a>(
 /// Crops the rectangle if it doesn't fit.
 /// Values equal to `mask` will be skipped.
 #[inline]
-pub fn blit_masked<'a, T: Clone + PartialEq + 'a>(
-    dest: BufferMut<'a, T>,
+pub fn blit_masked<T: Clone + PartialEq>(
+    dest: &mut impl BufferMut<T>,
     dest_pos: (i32, i32),
-    src: impl AsRef<Buffer<'a, T>>,
+    src: &impl Buffer<T>,
     src_pos: (i32, i32),
     size: (u32, u32),
     mask: &T,
@@ -61,17 +62,14 @@ pub fn blit_masked<'a, T: Clone + PartialEq + 'a>(
 /// Crops the rectangle if it doesn't fit.
 /// `f` is called for each pair of values, the last argument
 /// is their position relative to the (already cropped if necessary) rectangle that is being blitted.
-pub fn blit_with<'a, T: 'a, U: 'a>(
-    mut dest: impl AsMut<BufferMut<'a, T>>,
+pub fn blit_with<T, U>(
+    dest: &mut impl BufferMut<T>,
     dest_pos: (i32, i32),
-    src: impl AsRef<Buffer<'a, U>>,
+    src: &impl Buffer<U>,
     src_pos: (i32, i32),
     size: (u32, u32),
     mut f: impl FnMut(&mut T, &U, (i32, i32)),
 ) {
-    let dest = dest.as_mut();
-    let src = src.as_ref();
-
     let (dx, dw) = if dest_pos.0 < 0 {
         (0, size.0.saturating_sub(dest_pos.0.unsigned_abs()))
     } else {
@@ -97,180 +95,145 @@ pub fn blit_with<'a, T: 'a, U: 'a>(
     };
 
     let copy_width = min(
-        min(dest.width.saturating_sub(dx), src.width.saturating_sub(sx)),
+        min(
+            dest.width().saturating_sub(dx),
+            src.width().saturating_sub(sx),
+        ),
         min(sw, dw),
     ) as usize;
     let copy_height = min(
         min(
-            dest.height.saturating_sub(dy),
-            src.height.saturating_sub(sy),
+            dest.height().saturating_sub(dy),
+            src.height().saturating_sub(sy),
         ),
         min(dh, sh),
     ) as usize;
 
     for iy in 0..copy_height {
-        let dest_offset = (iy + dy as usize) * dest.width as usize + dx as usize;
-        let src_offset = (iy + sy as usize) * src.width as usize + sx as usize;
-
         for ix in 0..copy_width {
             f(
-                &mut dest[dest_offset + ix],
-                &src[src_offset + ix],
+                dest.get_mut(dx + ix as u32, dy + iy as u32),
+                src.get(sx + ix as u32, sy + iy as u32),
                 (ix as _, iy as _),
-            )
+            );
         }
     }
 }
 
-/// Immutable buffer with width and height
-pub struct Buffer<'a, T> {
-    slice: &'a [T],
+/// Generic buffer with width and height.
+pub struct GenericBuffer<Slice, Item> {
+    slice: Slice,
     width: u32,
     height: u32,
+    ghost: PhantomData<Item>,
 }
 
-impl<'a, T> Buffer<'a, T> {
-    /// Construct a new buffer
+impl<Slice, Item> GenericBuffer<Slice, Item>
+where
+    Slice: AsRef<[Item]>,
+{
+    /// Construct a new buffer.
     ///
-    /// Returns `None` if `slice.len() != width * height`
+    /// Returns `None` if `slice.len() != width * height`.
     #[inline]
-    pub fn new(slice: &'a [T], width: u32, height: u32) -> Option<Self> {
-        if slice.len() == (width * height) as _ {
+    pub fn new(slice: Slice, width: u32, height: u32) -> Option<Self> {
+        if slice.as_ref().len() == (width * height) as _ {
             Some(Self {
                 slice,
                 width,
                 height,
+                ghost: PhantomData,
             })
         } else {
             None
         }
     }
 
-    /// Constructs a new buffer
+    /// Constructs a new buffer.
     ///
-    /// Infers the height from slice length and width
+    /// Infers the height from slice length and width.
     #[inline]
-    pub fn new_infer(slice: &'a [T], width: u32) -> Self {
+    pub fn new_infer(slice: Slice, width: u32) -> Self {
         Self {
+            height: slice.as_ref().len() as u32 / width,
             slice,
             width,
-            height: slice.len() as u32 / width,
+            ghost: PhantomData,
         }
-    }
-
-    /// Get the buffer width
-    #[inline]
-    pub fn width(&self) -> u32 {
-        self.width
-    }
-
-    /// Get the buffer height
-    #[inline]
-    pub fn height(&self) -> u32 {
-        self.height
     }
 }
 
-impl<'a, T> Deref for Buffer<'a, T> {
-    type Target = [T];
+impl<Slice, Item> Deref for GenericBuffer<Slice, Item>
+where
+    Slice: AsRef<[Item]>,
+{
+    type Target = [Item];
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        self.slice
+        self.slice.as_ref()
     }
 }
 
-impl<'a, T> AsRef<Self> for Buffer<'a, T> {
-    #[inline]
-    fn as_ref(&self) -> &Self {
-        self
-    }
-}
-
-impl<'a, T> AsMut<Self> for Buffer<'a, T> {
-    #[inline]
-    fn as_mut(&mut self) -> &mut Self {
-        self
-    }
-}
-
-/// Mutable buffer with width and height
-pub struct BufferMut<'a, T> {
-    slice: &'a mut [T],
-    width: u32,
-    height: u32,
-}
-
-impl<'a, T> BufferMut<'a, T> {
-    /// Construct a new buffer
-    ///
-    /// Returns `None` if `slice.len() != width * height`
-    #[inline]
-    pub fn new(slice: &'a mut [T], width: u32, height: u32) -> Option<Self> {
-        if slice.len() == (width * height) as _ {
-            Some(Self {
-                slice,
-                width,
-                height,
-            })
-        } else {
-            None
-        }
-    }
-
-    /// Constructs a new buffer
-    ///
-    /// Infers the height from slice length and width
-    #[inline]
-    pub fn new_infer(slice: &'a mut [T], width: u32) -> Self {
-        Self {
-            height: slice.len() as u32 / width,
-            slice,
-            width,
-        }
-    }
-
-    /// Get the buffer width
-    #[inline]
-    pub fn width(&self) -> u32 {
-        self.width
-    }
-
-    /// Get the buffer height
-    #[inline]
-    pub fn height(&self) -> u32 {
-        self.height
-    }
-}
-
-impl<'a, T> Deref for BufferMut<'a, T> {
-    type Target = [T];
-
-    #[inline]
-    fn deref(&self) -> &Self::Target {
-        self.slice
-    }
-}
-
-impl<'a, T> DerefMut for BufferMut<'a, T> {
+impl<Slice, Item> DerefMut for GenericBuffer<Slice, Item>
+where
+    Slice: AsRef<[Item]> + AsMut<[Item]>,
+{
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
-        self.slice
+        self.slice.as_mut()
     }
 }
 
-impl<'a, T> AsRef<Self> for BufferMut<'a, T> {
+impl<Slice, Item> Buffer<Item> for GenericBuffer<Slice, Item>
+where
+    Slice: AsRef<[Item]>,
+{
     #[inline]
-    fn as_ref(&self) -> &Self {
-        self
+    fn width(&self) -> u32 {
+        self.width
+    }
+
+    #[inline]
+    fn height(&self) -> u32 {
+        self.height
+    }
+
+    #[inline]
+    fn get(&self, x: u32, y: u32) -> &Item {
+        self.slice.as_ref().index((y * self.width + x) as usize)
     }
 }
 
-impl<'a, T> AsMut<Self> for BufferMut<'a, T> {
+impl<Slice, Item> BufferMut<Item> for GenericBuffer<Slice, Item>
+where
+    Slice: AsRef<[Item]> + AsMut<[Item]>,
+{
     #[inline]
-    fn as_mut(&mut self) -> &mut Self {
-        self
+    fn get_mut(&mut self, x: u32, y: u32) -> &mut Item {
+        self.slice.as_mut().index_mut((y * self.width + x) as usize)
     }
+}
+
+/// 2D immutable buffer trait.
+pub trait Buffer<T> {
+    /// Buffer width
+    fn width(&self) -> u32;
+    /// Buffer height
+    fn height(&self) -> u32;
+
+    /// Get a value at (x, y).
+    /// This function must not panic when `x < self.width() && y < self.height()` (unless you want blit functions to panic).
+    /// It will not be called with values outside of that range.
+    fn get(&self, x: u32, y: u32) -> &T;
+}
+
+/// 2D mutable buffer trait.
+pub trait BufferMut<T>: Buffer<T> {
+    /// Get a mutable value at (x, y).
+    /// This function must not panic when `x < self.width() && y < self.height()` (unless you want blit functions to panic).
+    /// It will not be called with values outside of that range.
+    fn get_mut(&mut self, x: u32, y: u32) -> &mut T;
 }
 
 #[cfg(test)]
@@ -281,13 +244,13 @@ mod tests {
     fn simple() {
         let mut dest = [0_u8; 25];
 
-        let dest_buf = BufferMut::new(&mut dest, 5, 5).unwrap();
+        let mut dest_buf = GenericBuffer::new(&mut dest, 5, 5).unwrap();
 
         let src = [1_u8; 16];
 
-        let src_buf = Buffer::new(&src, 4, 4).unwrap();
+        let src_buf = GenericBuffer::new(&src, 4, 4).unwrap();
 
-        blit(dest_buf, (1, 1), src_buf, (0, 0), (3, 3));
+        blit(&mut dest_buf, (1, 1), &src_buf, (0, 0), (3, 3));
 
         #[rustfmt::skip]
         let correct: [u8; 25] = [
@@ -305,13 +268,13 @@ mod tests {
     fn dest_oob() {
         let mut dest = [0_u8; 25];
 
-        let dest_buf = BufferMut::new(&mut dest, 5, 5).unwrap();
+        let mut dest_buf = GenericBuffer::new(&mut dest, 5, 5).unwrap();
 
         let src = [1_u8; 16];
 
-        let src_buf = Buffer::new(&src, 4, 4).unwrap();
+        let src_buf = GenericBuffer::new(&src, 4, 4).unwrap();
 
-        blit(dest_buf, (-1, -1), src_buf, (0, 0), (4, 4));
+        blit(&mut dest_buf, (-1, -1), &src_buf, (0, 0), (4, 4));
 
         #[rustfmt::skip]
         let correct: [u8; 25] = [
@@ -329,13 +292,13 @@ mod tests {
     fn too_small() {
         let mut dest = [0_u8; 25];
 
-        let dest_buf = BufferMut::new(&mut dest, 5, 5).unwrap();
+        let mut dest_buf = GenericBuffer::new(&mut dest, 5, 5).unwrap();
 
         let src = [1_u8; 16];
 
-        let src_buf = Buffer::new(&src, 4, 4).unwrap();
+        let src_buf = GenericBuffer::new(&src, 4, 4).unwrap();
 
-        blit(dest_buf, (-1, -1), src_buf, (-1, -1), (6, 6));
+        blit(&mut dest_buf, (-1, -1), &src_buf, (-1, -1), (6, 6));
 
         #[rustfmt::skip]
         let correct: [u8; 25] = [
