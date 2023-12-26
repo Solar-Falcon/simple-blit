@@ -31,7 +31,9 @@ blit(
     // where to blit from
     (0, 0),
     // size of the area
-    (3, 3)
+    (3, 3),
+    // no flips or anything
+    Default::default(),
 );
 
 assert_eq!(dest, [

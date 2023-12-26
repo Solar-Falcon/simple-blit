@@ -8,18 +8,33 @@ use core::{
     ops::{Deref, DerefMut, Index, IndexMut},
 };
 
+/// Any special options that can be applied.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum BlitOptions {
+    /// No spacial options.
+    #[default]
+    None,
+    /// Flip the result horizontally.
+    FlipHorizontal,
+    /// Flip the result vertically.
+    FlipVertical,
+    /// Flip the result horizontally and vertically.
+    FlipBoth,
+}
+
 /// Blit from one buffer to another.
 ///
 /// Crops the rectangle if it doesn't fit.
 #[inline]
 pub fn blit<T: Clone>(
-    dest: &mut impl BufferMut<T>,
+    dest: &mut (impl BufferMut<T> + ?Sized),
     dest_pos: (i32, i32),
-    src: &impl Buffer<T>,
+    src: &(impl Buffer<T> + ?Sized),
     src_pos: (i32, i32),
     size: (u32, u32),
+    opts: BlitOptions,
 ) {
-    blit_with(dest, dest_pos, src, src_pos, size, |dest, src, _| {
+    blit_with(dest, dest_pos, src, src_pos, size, opts, |dest, src, _| {
         dest.clone_from(src)
     });
 }
@@ -29,12 +44,13 @@ pub fn blit<T: Clone>(
 /// Crops the rectangle if it doesn't fit.
 #[inline]
 pub fn blit_full<T: Clone>(
-    dest: &mut impl BufferMut<T>,
+    dest: &mut (impl BufferMut<T> + ?Sized),
     dest_pos: (i32, i32),
-    src: &impl Buffer<T>,
+    src: &(impl Buffer<T> + ?Sized),
+    opts: BlitOptions,
 ) {
     let size = (src.width(), src.height());
-    blit(dest, dest_pos, src, (0, 0), size);
+    blit(dest, dest_pos, src, (0, 0), size, opts);
 }
 
 /// Blit one whole buffer to another.
@@ -43,14 +59,15 @@ pub fn blit_full<T: Clone>(
 /// Values equal to `mask` will be skipped.
 #[inline]
 pub fn blit_masked<T: Clone + PartialEq>(
-    dest: &mut impl BufferMut<T>,
+    dest: &mut (impl BufferMut<T> + ?Sized),
     dest_pos: (i32, i32),
-    src: &impl Buffer<T>,
+    src: &(impl Buffer<T> + ?Sized),
     src_pos: (i32, i32),
     size: (u32, u32),
     mask: &T,
+    opts: BlitOptions,
 ) {
-    blit_with(dest, dest_pos, src, src_pos, size, |dest, src, _| {
+    blit_with(dest, dest_pos, src, src_pos, size, opts, |dest, src, _| {
         if src != mask {
             dest.clone_from(src);
         }
@@ -63,12 +80,13 @@ pub fn blit_masked<T: Clone + PartialEq>(
 /// `f` is called for each pair of values, the last argument
 /// is their position relative to the (already cropped if necessary) rectangle that is being blitted.
 pub fn blit_with<T, U>(
-    dest: &mut impl BufferMut<T>,
+    dest: &mut (impl BufferMut<T> + ?Sized),
     dest_pos: (i32, i32),
-    src: &impl Buffer<U>,
+    src: &(impl Buffer<U> + ?Sized),
     src_pos: (i32, i32),
     size: (u32, u32),
-    mut f: impl FnMut(&mut T, &U, (i32, i32)),
+    opts: BlitOptions,
+    mut f: impl FnMut(&mut T, &U, (usize, usize)),
 ) {
     let (dx, dw) = if dest_pos.0 < 0 {
         (0, size.0.saturating_sub(dest_pos.0.unsigned_abs()))
@@ -100,20 +118,27 @@ pub fn blit_with<T, U>(
             src.width().saturating_sub(sx),
         ),
         min(sw, dw),
-    ) as usize;
+    );
     let copy_height = min(
         min(
             dest.height().saturating_sub(dy),
             src.height().saturating_sub(sy),
         ),
         min(dh, sh),
-    ) as usize;
+    );
 
     for iy in 0..copy_height {
         for ix in 0..copy_width {
+            let (dst_ix, dst_iy) = match opts {
+                BlitOptions::None => (ix, iy),
+                BlitOptions::FlipHorizontal => (copy_width - ix - 1, iy),
+                BlitOptions::FlipVertical => (ix, copy_height - iy - 1),
+                BlitOptions::FlipBoth => (copy_width - ix - 1, copy_height - iy - 1),
+            };
+
             f(
-                dest.get_mut(dx + ix as u32, dy + iy as u32),
-                src.get(sx + ix as u32, sy + iy as u32),
+                dest.get_mut(dx + dst_ix, dy + dst_iy),
+                src.get(sx + ix, sy + iy),
                 (ix as _, iy as _),
             );
         }
@@ -250,7 +275,7 @@ mod tests {
 
         let src_buf = GenericBuffer::new(&src, 4, 4).unwrap();
 
-        blit(&mut dest_buf, (1, 1), &src_buf, (0, 0), (3, 3));
+        blit(&mut dest_buf, (1, 1), &src_buf, (0, 0), (3, 3), BlitOptions::None);
 
         #[rustfmt::skip]
         let correct: [u8; 25] = [
@@ -258,6 +283,35 @@ mod tests {
             0, 1, 1, 1, 0,
             0, 1, 1, 1, 0,
             0, 1, 1, 1, 0,
+            0, 0, 0, 0, 0,
+        ];
+
+        assert_eq!(dest, correct);
+    }
+
+    #[test]
+    fn flip() {
+        let mut dest = [0_u8; 25];
+
+        let mut dest_buf = GenericBuffer::new(&mut dest, 5, 5).unwrap();
+
+        #[rustfmt::skip]
+        let src: [u8; 9] = [
+            1, 2, 3,
+            1, 2, 3,
+            1, 2, 3,
+        ];
+
+        let src_buf = GenericBuffer::new(&src, 3, 3).unwrap();
+
+        blit_full(&mut dest_buf, (1, 1), &src_buf, BlitOptions::FlipHorizontal);
+
+        #[rustfmt::skip]
+        let correct: [u8; 25] = [
+            0, 0, 0, 0, 0,
+            0, 3, 2, 1, 0,
+            0, 3, 2, 1, 0,
+            0, 3, 2, 1, 0,
             0, 0, 0, 0, 0,
         ];
 
@@ -274,7 +328,7 @@ mod tests {
 
         let src_buf = GenericBuffer::new(&src, 4, 4).unwrap();
 
-        blit(&mut dest_buf, (-1, -1), &src_buf, (0, 0), (4, 4));
+        blit(&mut dest_buf, (-1, -1), &src_buf, (0, 0), (4, 4), BlitOptions::None);
 
         #[rustfmt::skip]
         let correct: [u8; 25] = [
@@ -298,7 +352,7 @@ mod tests {
 
         let src_buf = GenericBuffer::new(&src, 4, 4).unwrap();
 
-        blit(&mut dest_buf, (-1, -1), &src_buf, (-1, -1), (6, 6));
+        blit(&mut dest_buf, (-1, -1), &src_buf, (-1, -1), (6, 6), BlitOptions::None);
 
         #[rustfmt::skip]
         let correct: [u8; 25] = [
