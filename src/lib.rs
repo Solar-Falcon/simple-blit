@@ -275,7 +275,14 @@ mod tests {
 
         let src_buf = GenericBuffer::new(&src, 4, 4).unwrap();
 
-        blit(&mut dest_buf, (1, 1), &src_buf, (0, 0), (3, 3), BlitOptions::None);
+        blit(
+            &mut dest_buf,
+            (1, 1),
+            &src_buf,
+            (0, 0),
+            (3, 3),
+            BlitOptions::None,
+        );
 
         #[rustfmt::skip]
         let correct: [u8; 25] = [
@@ -328,7 +335,14 @@ mod tests {
 
         let src_buf = GenericBuffer::new(&src, 4, 4).unwrap();
 
-        blit(&mut dest_buf, (-1, -1), &src_buf, (0, 0), (4, 4), BlitOptions::None);
+        blit(
+            &mut dest_buf,
+            (-1, -1),
+            &src_buf,
+            (0, 0),
+            (4, 4),
+            BlitOptions::None,
+        );
 
         #[rustfmt::skip]
         let correct: [u8; 25] = [
@@ -352,7 +366,14 @@ mod tests {
 
         let src_buf = GenericBuffer::new(&src, 4, 4).unwrap();
 
-        blit(&mut dest_buf, (-1, -1), &src_buf, (-1, -1), (6, 6), BlitOptions::None);
+        blit(
+            &mut dest_buf,
+            (-1, -1),
+            &src_buf,
+            (-1, -1),
+            (6, 6),
+            BlitOptions::None,
+        );
 
         #[rustfmt::skip]
         let correct: [u8; 25] = [
