@@ -86,7 +86,7 @@ pub fn blit_with<T, U>(
     src_pos: (i32, i32),
     size: (u32, u32),
     opts: BlitOptions,
-    mut f: impl FnMut(&mut T, &U, (usize, usize)),
+    mut f: impl FnMut(&mut T, &U, (u32, u32)),
 ) {
     let (dx, dw) = if dest_pos.0 < 0 {
         (0, size.0.saturating_sub(dest_pos.0.unsigned_abs()))
@@ -139,7 +139,7 @@ pub fn blit_with<T, U>(
             f(
                 dest.get_mut(dx + dst_ix, dy + dst_iy),
                 src.get(sx + ix, sy + iy),
-                (ix as _, iy as _),
+                (ix, iy),
             );
         }
     }
