@@ -44,3 +44,7 @@ assert_eq!(dest, [
     0, 0, 0, 0, 0,
 ]);
 ```
+
+## Features
+
+* `pixels-integration` (off by default): implements `Buffer` and `BufferMut` for [`Pixels`](https://docs.rs/pixels/0.13.0/pixels/struct.Pixels.html).
