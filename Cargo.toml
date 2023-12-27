@@ -1,6 +1,6 @@
 [package]
 name = "simple-blit"
-version = "0.6.0"
+version = "0.6.1"
 description = "Simple blitting from one buffer to another."
 authors = ["Solar-Falcon"]
 edition = "2021"
@@ -8,3 +8,11 @@ license = "MIT"
 repository = "https://github.com/Solar-Falcon/simple-blit"
 categories = ["no-std", "no-std::no-alloc"]
 readme = "README.md"
+
+[dependencies]
+pixels = { version = "0.13", optional = true }
+rgb = { version = "0.8", optional = true }
+
+[features]
+default = []
+pixels-integration = ["pixels", "rgb"]

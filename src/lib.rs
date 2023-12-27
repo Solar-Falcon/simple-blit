@@ -7,6 +7,12 @@ use core::{
     marker::PhantomData,
     ops::{Deref, DerefMut, Index, IndexMut},
 };
+#[cfg(feature = "pixels-integration")]
+pub use pixels::Pixels;
+#[cfg(feature = "pixels-integration")]
+use rgb::AsPixels;
+#[cfg(feature = "pixels-integration")]
+pub use rgb::RGBA8;
 
 /// Any special options that can be applied.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
@@ -259,6 +265,38 @@ pub trait BufferMut<T>: Buffer<T> {
     /// This function must not panic when `x < self.width() && y < self.height()` (unless you want blit functions to panic).
     /// It will not be called with values outside of that range.
     fn get_mut(&mut self, x: u32, y: u32) -> &mut T;
+}
+
+#[cfg(feature = "pixels-integration")]
+impl Buffer<RGBA8> for Pixels {
+    #[inline]
+    fn width(&self) -> u32 {
+        self.texture().width()
+    }
+
+    #[inline]
+    fn height(&self) -> u32 {
+        self.texture().height()
+    }
+
+    #[inline]
+    fn get(&self, x: u32, y: u32) -> &RGBA8 {
+        self.frame()
+            .as_pixels()
+            .index((y * self.width() + x) as usize)
+    }
+}
+
+#[cfg(feature = "pixels-integration")]
+impl BufferMut<RGBA8> for Pixels {
+    #[inline]
+    fn get_mut(&mut self, x: u32, y: u32) -> &mut RGBA8 {
+        let width = self.width();
+
+        self.frame_mut()
+            .as_pixels_mut()
+            .index_mut((y * width + x) as usize)
+    }
 }
 
 #[cfg(test)]
