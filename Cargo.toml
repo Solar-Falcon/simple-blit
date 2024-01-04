@@ -1,6 +1,6 @@
 [package]
 name = "simple-blit"
-version = "0.6.1"
+version = "0.7.0"
 description = "Simple blitting from one buffer to another."
 authors = ["Solar-Falcon"]
 edition = "2021"

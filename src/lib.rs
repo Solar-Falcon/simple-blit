@@ -80,6 +80,24 @@ pub fn blit_masked<T: Clone + PartialEq>(
     })
 }
 
+/// Blit one buffer to another.
+///
+/// Crops the rectangle if it doesn't fit.
+/// Converts the values automatically.
+#[inline]
+pub fn blit_convert<T: From<U>, U: Clone>(
+    dest: &mut (impl BufferMut<T> + ?Sized),
+    dest_pos: (i32, i32),
+    src: &(impl Buffer<U> + ?Sized),
+    src_pos: (i32, i32),
+    size: (u32, u32),
+    opts: BlitOptions,
+) {
+    blit_with(dest, dest_pos, src, src_pos, size, opts, |dest, src, _| {
+        *dest = src.clone().into();
+    });
+}
+
 /// Blit one whole buffer to another (generalized function).
 ///
 /// Crops the rectangle if it doesn't fit.
