@@ -17,7 +17,7 @@ pub use rgb::RGBA8;
 /// Any special options that can be applied.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum BlitOptions {
-    /// No spacial options.
+    /// No special options.
     #[default]
     None,
     /// Flip the result horizontally.
