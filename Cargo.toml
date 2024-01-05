@@ -1,6 +1,6 @@
 [package]
 name = "simple-blit"
-version = "0.7.0"
+version = "0.7.1"
 description = "Simple blitting from one buffer to another."
 authors = ["Solar-Falcon"]
 edition = "2021"
@@ -12,6 +12,7 @@ readme = "README.md"
 [dependencies]
 pixels = { version = "0.13", optional = true }
 rgb = { version = "0.8", optional = true }
+serde = { version = "1", default-features = false, features = ["derive"], optional = true }
 
 [features]
 default = []

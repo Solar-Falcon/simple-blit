@@ -16,6 +16,7 @@ pub use rgb::RGBA8;
 
 /// Any special options that can be applied.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum BlitOptions {
     /// No special options.
     #[default]
@@ -170,6 +171,8 @@ pub fn blit_with<T, U>(
 }
 
 /// Generic buffer with width and height.
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GenericBuffer<Slice, Item> {
     slice: Slice,
     width: u32,

@@ -48,3 +48,4 @@ assert_eq!(dest, [
 ## Features
 
 * `pixels-integration` (off by default): implements `Buffer` and `BufferMut` for [`Pixels`](https://docs.rs/pixels/0.13.0/pixels/struct.Pixels.html).
+* `serde` (off by default): implements `Serialize` and `Deserialize` for `GenericBuffer` and `BlitOptions`.
