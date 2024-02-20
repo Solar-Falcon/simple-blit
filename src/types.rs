@@ -3,37 +3,60 @@ use core::{
     ops::{Deref, DerefMut, Index, IndexMut},
 };
 
-#[cfg(feature = "pixels-integration")]
-pub use pixels::Pixels;
-#[cfg(feature = "pixels-integration")]
-use rgb::AsPixels;
-#[cfg(feature = "pixels-integration")]
-pub use rgb::RGBA8;
+/// Point type.
+pub type Point = mint::Point2<u32>;
+/// Size type.
+pub type Size = mint::Vector2<u32>;
 
-/// Generic buffer with width and height.
-#[derive(Clone, Debug, PartialEq, Eq)]
+/// Quickly construct a `Point`.
+#[inline]
+pub const fn point(x: u32, y: u32) -> Point {
+    Point { x, y }
+}
+
+/// Quickly construct a `Size`.
+#[inline]
+pub const fn size(x: u32, y: u32) -> Size {
+    Size { x, y }
+}
+
+/// 2D immutable surface trait.
+pub trait Surface<T> {
+    /// Surface size.
+    fn surface_size(&self) -> Size;
+
+    /// Get a value at (pt.x, pt.y).
+    fn surface_get(&self, pt: Point) -> Option<&T>;
+}
+
+/// 2D mutable surface trait.
+pub trait SurfaceMut<T>: Surface<T> {
+    /// Get a mutable value at (pt.x, pt.y).
+    fn surface_get_mut(&mut self, pt: Point) -> Option<&mut T>;
+}
+
+/// Generic surface with width and height.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct GenericBuffer<Slice, Item> {
+pub struct GenericSurface<Slice, Item> {
     slice: Slice,
-    width: u32,
-    height: u32,
+    size: Size,
     ghost: PhantomData<Item>,
 }
 
-impl<Slice, Item> GenericBuffer<Slice, Item>
+impl<Slice, Item> GenericSurface<Slice, Item>
 where
     Slice: AsRef<[Item]>,
 {
-    /// Construct a new buffer.
+    /// Construct a new surface.
     ///
-    /// Returns `None` if `slice.len() != width * height`.
+    /// Returns `None` if `slice.len() != size.x * size.y`.
     #[inline]
-    pub fn new(slice: Slice, width: u32, height: u32) -> Option<Self> {
-        if slice.as_ref().len() == (width * height) as _ {
+    pub fn new(slice: Slice, size: Size) -> Option<Self> {
+        if slice.as_ref().len() == (size.x * size.y) as _ {
             Some(Self {
                 slice,
-                width,
-                height,
+                size,
                 ghost: PhantomData,
             })
         } else {
@@ -41,21 +64,20 @@ where
         }
     }
 
-    /// Constructs a new buffer.
+    /// Constructs a new surface.
     ///
     /// Infers the height from slice length and width.
     #[inline]
     pub fn new_infer(slice: Slice, width: u32) -> Self {
         Self {
-            height: slice.as_ref().len() as u32 / width,
+            size: size(width, slice.as_ref().len() as u32 / width),
             slice,
-            width,
             ghost: PhantomData,
         }
     }
 }
 
-impl<Slice, Item> Deref for GenericBuffer<Slice, Item>
+impl<Slice, Item> Deref for GenericSurface<Slice, Item>
 where
     Slice: AsRef<[Item]>,
 {
@@ -67,7 +89,7 @@ where
     }
 }
 
-impl<Slice, Item> DerefMut for GenericBuffer<Slice, Item>
+impl<Slice, Item> DerefMut for GenericSurface<Slice, Item>
 where
     Slice: AsRef<[Item]> + AsMut<[Item]>,
 {
@@ -77,126 +99,80 @@ where
     }
 }
 
-impl<Slice, Item> Buffer<Item> for GenericBuffer<Slice, Item>
+impl<Slice, Item> Surface<Item> for GenericSurface<Slice, Item>
 where
     Slice: AsRef<[Item]>,
 {
     #[inline]
-    fn width(&self) -> u32 {
-        self.width
+    fn surface_size(&self) -> Size {
+        self.size
     }
 
     #[inline]
-    fn height(&self) -> u32 {
-        self.height
-    }
-
-    #[inline]
-    fn get(&self, x: u32, y: u32) -> &Item {
-        self.slice.as_ref().index((y * self.width + x) as usize)
-    }
-}
-
-impl<Slice, Item> BufferMut<Item> for GenericBuffer<Slice, Item>
-where
-    Slice: AsRef<[Item]> + AsMut<[Item]>,
-{
-    #[inline]
-    fn get_mut(&mut self, x: u32, y: u32) -> &mut Item {
-        self.slice.as_mut().index_mut((y * self.width + x) as usize)
-    }
-}
-
-/// A 'buffer' that holds a single value, like a plain-colored rectangle.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct SingleValueBuffer<T> {
-    /// Buffer width.
-    pub width: u32,
-    /// Buffer height.
-    pub height: u32,
-    /// Stored value, likely a color.
-    pub value: T,
-}
-
-impl<T> SingleValueBuffer<T> {
-    /// Construct a new buffer.
-    #[inline]
-    pub const fn new(width: u32, height: u32, value: T) -> Self {
-        Self {
-            width,
-            height,
-            value,
+    fn surface_get(&self, pt: Point) -> Option<&Item> {
+        if pt.x < self.size.x && pt.y < self.size.y {
+            Some(
+                self.slice
+                    .as_ref()
+                    .index((pt.y * self.size.x + pt.x) as usize),
+            )
+        } else {
+            None
         }
     }
 }
 
-impl<T> Buffer<T> for SingleValueBuffer<T> {
+impl<Slice, Item> SurfaceMut<Item> for GenericSurface<Slice, Item>
+where
+    Slice: AsRef<[Item]> + AsMut<[Item]>,
+{
     #[inline]
-    fn width(&self) -> u32 {
-        self.width
-    }
-
-    #[inline]
-    fn height(&self) -> u32 {
-        self.height
-    }
-
-    #[inline]
-    fn get(&self, _x: u32, _y: u32) -> &T {
-        &self.value
-    }
-}
-
-/// 2D immutable buffer trait.
-pub trait Buffer<T> {
-    /// Buffer width
-    fn width(&self) -> u32;
-    /// Buffer height
-    fn height(&self) -> u32;
-
-    /// Get a value at (x, y).
-    /// This function must not panic when `x < self.width() && y < self.height()` (unless you want blit functions to panic).
-    /// It will not be called with values outside of that range.
-    fn get(&self, x: u32, y: u32) -> &T;
-}
-
-/// 2D mutable buffer trait.
-pub trait BufferMut<T>: Buffer<T> {
-    /// Get a mutable value at (x, y).
-    /// This function must not panic when `x < self.width() && y < self.height()` (unless you want blit functions to panic).
-    /// It will not be called with values outside of that range.
-    fn get_mut(&mut self, x: u32, y: u32) -> &mut T;
-}
-
-#[cfg(feature = "pixels-integration")]
-impl Buffer<RGBA8> for Pixels {
-    #[inline]
-    fn width(&self) -> u32 {
-        self.texture().width()
-    }
-
-    #[inline]
-    fn height(&self) -> u32 {
-        self.texture().height()
-    }
-
-    #[inline]
-    fn get(&self, x: u32, y: u32) -> &RGBA8 {
-        self.frame()
-            .as_pixels()
-            .index((y * self.width() + x) as usize)
+    fn surface_get_mut(&mut self, pt: Point) -> Option<&mut Item> {
+        if pt.x < self.size.x && pt.y < self.size.y {
+            Some(
+                self.slice
+                    .as_mut()
+                    .index_mut((pt.y * self.size.x + pt.x) as usize),
+            )
+        } else {
+            None
+        }
     }
 }
 
-#[cfg(feature = "pixels-integration")]
-impl BufferMut<RGBA8> for Pixels {
-    #[inline]
-    fn get_mut(&mut self, x: u32, y: u32) -> &mut RGBA8 {
-        let width = self.width();
+/// A 'surface' that holds a single value, like a plain-colored rectangle.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct SingleValueSurface<T> {
+    /// Surface size.
+    pub size: Size,
+    /// Stored value, likely a color.
+    pub value: T,
+}
 
-        self.frame_mut()
-            .as_pixels_mut()
-            .index_mut((y * width + x) as usize)
+impl<T> SingleValueSurface<T> {
+    /// Construct a new surface.
+    #[inline]
+    pub const fn new(value: T, size: Size) -> Self {
+        Self { size, value }
+    }
+}
+
+impl<T> Surface<T> for SingleValueSurface<T> {
+    #[inline]
+    fn surface_size(&self) -> Size {
+        self.size
+    }
+
+    #[inline]
+    fn surface_get(&self, _pt: Point) -> Option<&T> {
+        Some(&self.value)
+    }
+}
+
+impl<T> SurfaceMut<T> for SingleValueSurface<T> {
+    #[inline]
+    fn surface_get_mut(&mut self, _pt: Point) -> Option<&mut T> {
+        Some(&mut self.value)
     }
 }

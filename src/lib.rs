@@ -10,3 +10,7 @@ pub use types::*;
 
 #[cfg(test)]
 mod tests;
+
+mod integration;
+#[allow(unused_imports)]
+pub use integration::*;

@@ -1,20 +1,28 @@
 [package]
 name = "simple-blit"
-version = "0.8.0"
-description = "Simple blitting from one buffer to another."
+version = "1.0.0"
+description = "Provides simple blitting from one surface to another with some possible transformations."
 authors = ["Solar-Falcon"]
 edition = "2021"
-license = "MIT"
+license = "MIT-0"
 repository = "https://github.com/Solar-Falcon/simple-blit"
 categories = ["no-std", "no-std::no-alloc"]
 keywords = ["blit", "blitting", "pixels"]
 readme = "README.md"
 
 [dependencies]
+mint = "0.5"
+
+image = { version = "0.24", default-features = false, optional = true }
 pixels = { version = "0.13", optional = true }
 rgb = { version = "0.8", optional = true }
 serde = { version = "1", default-features = false, features = ["derive"], optional = true }
 
+[dev-dependencies]
+proptest = { version = "1.4", default-features = false, features = ["std"] }
+
 [features]
 default = []
+serde = ["dep:serde", "mint/serde"]
 pixels-integration = ["pixels", "rgb"]
+image-integration = ["image"]
