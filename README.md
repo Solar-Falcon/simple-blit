@@ -24,14 +24,18 @@ let src: [u8; 16] = [
 
 blit(
     // construct a surface which holds width and height
-    &mut GenericSurface::new(&mut dest, size(5, 5)).unwrap(),
-    // where to blit
-    point(1, 1),
-    &GenericSurface::new(&src, size(4, 4)).unwrap(),
-    // where to blit from
-    point(0, 0),
-    // size of the area
-    size(3, 3),
+    GenericSurface::new(&mut dest, size(5, 5))
+        .unwrap()
+        // offset on the destination
+        .offset_surface_mut(point(1, 1)),
+    // you can borrow the surface if you don't want to drop it
+    // (the destination has to be borrowed mutably of course)
+    &GenericSurface::new(&src, size(4, 4))
+        .unwrap()
+        .sub_surface(
+            point(0, 0), // source offset
+            size(3, 3)   // size of the area to copy
+        ),
     // no transformations
     Default::default(),
 );

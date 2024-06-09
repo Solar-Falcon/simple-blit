@@ -184,6 +184,12 @@ where
             ghost: PhantomData,
         }
     }
+
+    /// Returns the slice used to create the surface.
+    #[inline]
+    pub fn into_inner(self) -> Slice {
+        self.slice
+    }
 }
 
 impl<Slice, Item> Deref for GenericSurface<Slice, Item>
@@ -265,6 +271,24 @@ impl<T> SingleValueSurface<T> {
     pub const fn new(value: T, size: Size) -> Self {
         Self { size, value }
     }
+
+    /// Returns a reference to the underlying value.
+    #[inline]
+    pub fn value(&self) -> &T {
+        &self.value
+    }
+
+    /// Returns a reference to the underlying value.
+    #[inline]
+    pub fn value_mut(&mut self) -> &mut T {
+        &mut self.value
+    }
+
+    /// Returns the underlying value.
+    #[inline]
+    pub fn into_inner(self) -> T {
+        self.value
+    }
 }
 
 impl<T> Surface<T> for SingleValueSurface<T> {
@@ -309,19 +333,19 @@ impl<S, Item> SubSurface<S, Item> {
         self.size
     }
 
-    /// Get the inner surface that was used to construct this.
+    /// Returns a reference to the underlying surface.
     #[inline]
     pub fn inner(&self) -> &S {
         &self.surface
     }
 
-    /// Get the inner surface that was used to construct this.
+    /// Returns a reference to the underlying surface.
     #[inline]
     pub fn inner_mut(&mut self) -> &mut S {
         &mut self.surface
     }
 
-    /// Get the inner surface that was used to construct this.
+    /// Returns the underlying surface.
     #[inline]
     pub fn into_inner(self) -> S {
         self.surface

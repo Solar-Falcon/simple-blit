@@ -1,7 +1,7 @@
 extern crate alloc;
 
 use self::predefined::Predefined;
-use crate::{blit, blit_whole, point, size, GenericSurface, Surface, Transform};
+use crate::{blit, point, size, GenericSurface, Surface, Transform};
 use alloc::format;
 use proptest::{
     prelude::prop,
@@ -212,13 +212,7 @@ fn transforms() {
             dest = GenericSurface::new(&mut dest_array_scaled[..], size(6, 6)).unwrap();
         }
 
-        blit_whole(
-            &mut dest,
-            point(0, 0),
-            &src.surface(),
-            point(0, 0),
-            &transforms,
-        );
+        blit(&mut dest, src.surface(), &transforms);
 
         prop_assert_eq!(&*dest, &*desired);
 
@@ -244,11 +238,8 @@ fn simple() {
     let src_buf = GenericSurface::new(&src, size(4, 4)).unwrap();
 
     blit(
-        &mut dest_buf,
-        point(1, 1),
-        &src_buf,
-        point(0, 0),
-        size(3, 3),
+        dest_buf.offset_surface_mut(point(1, 1)),
+        src_buf.sub_surface(point(0, 0), size(3, 3)),
         Default::default(),
     );
 
@@ -268,18 +259,15 @@ fn simple() {
 fn too_small() {
     let mut dest = [0_u8; 25];
 
-    let mut dest_buf = GenericSurface::new(&mut dest, size(5, 5)).unwrap();
+    let dest_buf = GenericSurface::new(&mut dest, size(5, 5)).unwrap();
 
     let src = [1_u8; 16];
 
     let src_buf = GenericSurface::new(&src, size(4, 4)).unwrap();
 
     blit(
-        &mut dest_buf,
-        point(0, 0),
-        &src_buf,
-        point(0, 0),
-        size(6, 6),
+        dest_buf,
+        src_buf.sub_surface(point(0, 0), size(6, 6)),
         Default::default(),
     );
 
@@ -299,7 +287,7 @@ fn too_small() {
 fn test_subsurface() {
     let mut dest = [0_u8; 25];
 
-    let mut dest_buf = GenericSurface::new(&mut dest, size(5, 5))
+    let dest_buf = GenericSurface::new(&mut dest, size(5, 5))
         .unwrap()
         .into_sub_surface(point(1, 1), size(2, 2));
 
@@ -307,7 +295,7 @@ fn test_subsurface() {
 
     let src_buf = GenericSurface::new(&src, size(4, 4)).unwrap();
 
-    blit_whole(&mut dest_buf, point(0, 0), &src_buf, point(0, 0), &[]);
+    blit(dest_buf, src_buf, &[]);
 
     #[rustfmt::skip]
     let correct: [u8; 25] = [
