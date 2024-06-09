@@ -30,11 +30,11 @@ pub trait Surface<T> {
 
     /// Create a [`SubSurface`] that only uses a rectangular part of this surface.
     #[inline]
-    fn sub_surface(&self, pos: Point, size: Size) -> SubSurface<&Self, T>
+    fn sub_surface(&self, offset: Point, size: Size) -> SubSurface<&Self, T>
     where
         Self: Sized,
     {
-        SubSurface::new(self, pos, size)
+        SubSurface::new(self, offset, size)
     }
 
     /// Create a [`SubSurface`] that only uses a rectangular part of this surface starting from (offset.x, offset.y).
@@ -53,11 +53,11 @@ pub trait Surface<T> {
 
     /// Create a [`SubSurface`] that only uses a rectangular part of this surface.
     #[inline]
-    fn sub_surface_mut(&mut self, pos: Point, size: Size) -> SubSurface<&mut Self, T>
+    fn sub_surface_mut(&mut self, offset: Point, size: Size) -> SubSurface<&mut Self, T>
     where
         Self: Sized,
     {
-        SubSurface::new(self, pos, size)
+        SubSurface::new(self, offset, size)
     }
 
     /// Create a [`SubSurface`] that only uses a rectangular part of this surface starting from (offset.x, offset.y).
@@ -76,11 +76,11 @@ pub trait Surface<T> {
 
     /// Create a [`SubSurface`] that only uses a rectangular part of this surface.
     #[inline]
-    fn into_sub_surface(self, pos: Point, size: Size) -> SubSurface<Self, T>
+    fn into_sub_surface(self, offset: Point, size: Size) -> SubSurface<Self, T>
     where
         Self: Sized,
     {
-        SubSurface::new(self, pos, size)
+        SubSurface::new(self, offset, size)
     }
 
     /// Create a [`SubSurface`] that only uses a rectangular part of this surface starting from (offset.x, offset.y).
@@ -291,7 +291,7 @@ impl<T> SurfaceMut<T> for SingleValueSurface<T> {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SubSurface<S, Item> {
     surface: S,
-    pos: Point,
+    offset: Point,
     size: Size,
     ghost: PhantomData<Item>,
 }
@@ -299,8 +299,8 @@ pub struct SubSurface<S, Item> {
 impl<S, Item> SubSurface<S, Item> {
     /// Position of the rectangular part on the original surface.
     #[inline]
-    pub fn pos(&self) -> Point {
-        self.pos
+    pub fn offset(&self) -> Point {
+        self.offset
     }
 
     /// Size of the rectangular part (size of the `SubSurface` itself).
@@ -334,10 +334,10 @@ where
 {
     /// Create a new `SubSurface`.
     #[inline]
-    pub fn new(surface: S, pos: Point, size: Size) -> Self {
+    pub fn new(surface: S, offset: Point, size: Size) -> Self {
         Self {
             surface,
-            pos,
+            offset,
             size,
             ghost: PhantomData,
         }
@@ -355,13 +355,8 @@ where
 
     #[inline]
     fn surface_get(&self, pt: Point) -> Option<&Item> {
-        if pt.x >= self.pos.x
-            && pt.y >= self.pos.y
-            && pt.x < self.pos.x + self.size.x
-            && pt.y < self.pos.y + self.size.y
-        {
-            self.surface
-                .surface_get(point(pt.x - self.pos.x, pt.y - self.pos.y))
+        if pt.x < self.size.x && pt.y < self.size.y {
+            self.surface.surface_get(point(pt.x + self.offset.x, pt.y + self.offset.y))
         } else {
             None
         }
@@ -374,13 +369,8 @@ where
 {
     #[inline]
     fn surface_get_mut(&mut self, pt: Point) -> Option<&mut Item> {
-        if pt.x >= self.pos.x
-            && pt.y >= self.pos.y
-            && pt.x < self.pos.x + self.size.x
-            && pt.y < self.pos.y + self.size.y
-        {
-            self.surface
-                .surface_get_mut(point(pt.x - self.pos.x, pt.y - self.pos.y))
+        if pt.x < self.size.x && pt.y < self.size.y {
+            self.surface.surface_get_mut(point(pt.x + self.offset.x, pt.y + self.offset.y))
         } else {
             None
         }

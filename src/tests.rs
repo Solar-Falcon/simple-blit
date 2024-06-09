@@ -294,3 +294,33 @@ fn too_small() {
 
     assert_eq!(dest, correct);
 }
+
+#[test]
+fn test_subsurface() {
+    let mut dest = [0_u8; 25];
+    
+    let mut dest_buf = GenericSurface::new(&mut dest, size(5, 5)).unwrap().into_sub_surface(point(1, 1), size(2, 2));
+
+    let src = [1_u8; 16];
+
+    let src_buf = GenericSurface::new(&src, size(4, 4)).unwrap();
+
+    blit_whole(
+        &mut dest_buf,
+        point(0, 0),
+        &src_buf,
+        point(0, 0),
+        &[],
+    );
+
+    #[rustfmt::skip]
+    let correct: [u8; 25] = [
+        0, 0, 0, 0, 0,
+        0, 1, 1, 0, 0,
+        0, 1, 1, 0, 0,
+        0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0,
+    ];
+
+    assert_eq!(dest, correct);
+}
