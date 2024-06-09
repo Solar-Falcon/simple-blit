@@ -356,7 +356,8 @@ where
     #[inline]
     fn surface_get(&self, pt: Point) -> Option<&Item> {
         if pt.x < self.size.x && pt.y < self.size.y {
-            self.surface.surface_get(point(pt.x + self.offset.x, pt.y + self.offset.y))
+            self.surface
+                .surface_get(point(pt.x + self.offset.x, pt.y + self.offset.y))
         } else {
             None
         }
@@ -370,7 +371,8 @@ where
     #[inline]
     fn surface_get_mut(&mut self, pt: Point) -> Option<&mut Item> {
         if pt.x < self.size.x && pt.y < self.size.y {
-            self.surface.surface_get_mut(point(pt.x + self.offset.x, pt.y + self.offset.y))
+            self.surface
+                .surface_get_mut(point(pt.x + self.offset.x, pt.y + self.offset.y))
         } else {
             None
         }
